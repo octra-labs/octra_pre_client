@@ -35,7 +35,7 @@ pip install -r requirements.txt
 cp wallet.json.example wallet.json
 ```
 
-3. open wallet.json and edit it (change placeholders to your wallet data):
+3. open wallet.json and edit it (change placeholders to your wallet data, use base64 format for the private key):
 
 ```json
 {
