@@ -35,7 +35,12 @@ pip install -r requirements.txt
 cp wallet.json.example wallet.json
 ```
 
-3. open wallet.json and edit it (change placeholders to your wallet data):
+3. open wallet.json
+ ```bash
+nano wallet.json
+```
+
+ and edit it (change placeholders to your wallet data):
 
 ```json
 {
@@ -44,8 +49,9 @@ cp wallet.json.example wallet.json
   "rpc": "https://octra.network"
 }
 ```
+" CTRL X - CTRL Y - Enter " to exit.
 
-3. run
+4. run
 
 ```bash
 ./run.sh       # on linux/mac
