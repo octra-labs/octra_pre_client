@@ -699,21 +699,22 @@ async def auto_multi():
             cycle_success, cycle_failed = 0, 0
             
             for batch_idx, batch in enumerate(batches):
-                tasks = []
+                # Send transactions sequentially with delay instead of all at once
                 for i, (to, a) in enumerate(batch):
                     idx = batch_idx * batch_size + i
+                    at(x + 2, y + 10, f"sending tx {idx + 1}/{len(recipients)}...", c['c'])
+                    
                     t, _ = mk(to, a, n + 1 + idx)
-                    tasks.append(snd(t))
-                
-                results = await asyncio.gather(*tasks, return_exceptions=True)
-                
-                for i, (result, (to, a)) in enumerate(zip(results, batch)):
+                    result = await snd(t)
+                    
                     if isinstance(result, Exception):
                         cycle_failed += 1
+                        at(x + 55, y + 10, "✗ fail", c['R'])
                     else:
                         ok, hs, _, _ = result
                         if ok:
                             cycle_success += 1
+                            at(x + 55, y + 10, "✓ ok  ", c['g'])
                             h.append({
                                 'time': datetime.now(),
                                 'hash': hs,
@@ -724,6 +725,10 @@ async def auto_multi():
                             })
                         else:
                             cycle_failed += 1
+                            at(x + 55, y + 10, "✗ fail", c['R'])
+        
+                    # Add delay between transactions to prevent nonce conflicts
+                    await asyncio.sleep(0.5)  # 500ms delay between transactions
             
             spin_task.cancel()
             try:
