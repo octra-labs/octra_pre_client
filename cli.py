@@ -597,16 +597,20 @@ async def exp():
         await awaitkey()
 
 async def auto_multi():
-    """Automated multi-send function that sends 0.05 OCT to 5 addresses every minute"""
+    """Automated multi-send function that sends 6 OCT total per day over 5 hours to 5 addresses"""
     
-    # Predefined recipients
+    # Predefined recipients - each gets 1.2 OCT per day (6 total / 5 addresses)
     recipients = [
-        ("octCTzLvKrxPXNGyWZeBAiEiE8UN7DXe2eGJVgdPYimKog5", 0.05),
-        ("octEggobi1U8AjJUPUye6P5nN7YwPUvohzJAf5TLeJTjWeU", 0.05),
-        ("octGHPkxysJ4vStwSH8nenokGACabo8vqjwFSWZMLG78DSt", 0.05),
-        ("oct6ofsKuhbFADd5yVxtJrCKFv6ZhWsYcneD5aHUGyq5CTo", 0.05),
-        ("octJBwmZNUjnffikWPYa2BmicP1x98JoSML6LMR3XScHgk7", 0.05)
+        ("octCTzLvKrxPXNGyWZeBAiEiE8UN7DXe2eGJVgdPYimKog5", 0.24),  # 1.2 OCT / 5 cycles = 0.24 per cycle
+        ("octEggobi1U8AjJUPUye6P5nN7YwPUvohzJAf5TLeJTjWeU", 0.24),
+        ("octGHPkxysJ4vStwSH8nenokGACabo8vqjwFSWZMLG78DSt", 0.24),
+        ("oct6ofsKuhbFADd5yVxtJrCKFv6ZhWsYcneD5aHUGyq5CTo", 0.24),
+        ("octJBwmZNUjnffikWPYa2BmicP1x98JoSML6LMR3XScHgk7", 0.24)
     ]
+    
+    # Send 5 times per day, every hour for 5 hours
+    cycles_per_day = 5
+    interval_seconds = 60 * 60  # 1 hour = 3600 seconds
     
     cr = sz()
     cls()
@@ -615,40 +619,42 @@ async def auto_multi():
     x = (cr[0] - w) // 2
     y = 2
     
-    box(x, y, w, hb, "automated multi send")
+    box(x, y, w, hb, "automated multi send - daily limit")
     
     # Display configuration
     at(x + 2, y + 2, "automated multi-send configuration:", c['B'] + c['y'])
     at(x + 2, y + 3, "─" * (w - 4), c['w'])
     at(x + 2, y + 4, f"recipients: {len(recipients)} addresses", c['c'])
-    at(x + 2, y + 5, f"amount per address: 0.05 OCT", c['c'])
-    at(x + 2, y + 6, f"total per cycle: {len(recipients) * 0.05:.2f} OCT", c['c'])
-    at(x + 2, y + 7, f"interval: 60 seconds", c['c'])
-    at(x + 2, y + 8, "─" * (w - 4), c['w'])
+    at(x + 2, y + 5, f"amount per address per cycle: 0.24 OCT", c['c'])
+    at(x + 2, y + 6, f"total per cycle: {len(recipients) * 0.24:.2f} OCT", c['c'])
+    at(x + 2, y + 7, f"cycles per day: {cycles_per_day}", c['c'])
+    at(x + 2, y + 8, f"daily total: 6.0 OCT", c['c'])
+    at(x + 2, y + 9, f"interval: {interval_seconds // 60} minutes", c['c'])
+    at(x + 2, y + 10, "─" * (w - 4), c['w'])
     
     # Check initial balance
     global lu
     lu = 0
     n, b = await st()
-    total_needed = len(recipients) * 0.05
+    total_needed_per_cycle = len(recipients) * 0.24
     
     if n is None:
-        at(x + 2, y + 10, "failed to get wallet status!", c['bgr'] + c['w'])
-        at(x + 2, y + 11, "press enter to go back...", c['y'])
-        await ainp(x + 2, y + 12)
+        at(x + 2, y + 12, "failed to get wallet status!", c['bgr'] + c['w'])
+        at(x + 2, y + 13, "press enter to go back...", c['y'])
+        await ainp(x + 2, y + 14)
         return
         
-    if not b or b < total_needed:
-        at(x + 2, y + 10, f"insufficient balance! need {total_needed:.2f}, have {b:.6f}", c['bgr'] + c['w'])
-        at(x + 2, y + 11, "press enter to go back...", c['y'])
-        await ainp(x + 2, y + 12)
+    if not b or b < total_needed_per_cycle:
+        at(x + 2, y + 12, f"insufficient balance! need {total_needed_per_cycle:.2f}, have {b:.6f}", c['bgr'] + c['w'])
+        at(x + 2, y + 13, "press enter to go back...", c['y'])
+        await ainp(x + 2, y + 14)
         return
     
-    at(x + 2, y + 10, f"current balance: {b:.6f} OCT", c['g'])
-    at(x + 2, y + 11, f"estimated cycles: {int(b / total_needed)}", c['c'])
-    at(x + 2, y + 13, "start automated sending? [y/n]: ", c['B'] + c['y'])
+    at(x + 2, y + 12, f"current balance: {b:.6f} OCT", c['g'])
+    at(x + 2, y + 13, f"estimated days: {int(b / 6.0)}", c['c'])
+    at(x + 2, y + 15, "start automated sending? [y/n]: ", c['B'] + c['y'])
     
-    if (await ainp(x + 35, y + 13)).strip().lower() != 'y':
+    if (await ainp(x + 35, y + 15)).strip().lower() != 'y':
         return
     
     # Clear screen for automation display
@@ -656,7 +662,7 @@ async def auto_multi():
     fill()
     box(x, y, w, hb, "automated multi send - running")
     
-    at(x + 2, y + 2, "status: running automated multi-send", c['bgg'] + c['w'])
+    at(x + 2, y + 2, "status: running automated multi-send (6 OCT/day)", c['bgg'] + c['w'])
     at(x + 2, y + 3, "press ctrl+c to stop", c['y'])
     at(x + 2, y + 4, "─" * (w - 4), c['w'])
     
@@ -664,57 +670,87 @@ async def auto_multi():
     total_sent = 0
     total_success = 0
     total_failed = 0
+    daily_sent = 0
+    last_cycle_date = None
     
     try:
         while True:
+            current_date = datetime.now().date()
+            
+            # Reset daily counter if it's a new day
+            if last_cycle_date != current_date:
+                daily_sent = 0
+                cycle_count = 0
+                last_cycle_date = current_date
+                at(x + 2, y + 5, f"new day started: {current_date}", c['g'])
+            
+            # Check if we've reached daily limit
+            if cycle_count >= cycles_per_day:
+                next_day = datetime.combine(current_date + timedelta(days=1), datetime.min.time())
+                wait_until_next_day = (next_day - datetime.now()).total_seconds()
+                
+                at(x + 2, y + 6, f"daily limit reached (6 OCT sent)", c['y'])
+                at(x + 2, y + 7, f"waiting for next day...", c['c'])
+                
+                # Show countdown to next day
+                while wait_until_next_day > 0:
+                    hours = int(wait_until_next_day // 3600)
+                    minutes = int((wait_until_next_day % 3600) // 60)
+                    seconds = int(wait_until_next_day % 60)
+                    at(x + 2, y + 8, f"next cycle in: {hours:02d}:{minutes:02d}:{seconds:02d}    ", c['y'])
+                    await asyncio.sleep(1)
+                    wait_until_next_day -= 1
+                continue
+            
             cycle_count += 1
             cycle_start = time.time()
             
             # Update display
-            at(x + 2, y + 6, f"cycle: {cycle_count}", c['c'])
+            at(x + 2, y + 6, f"today's cycle: {cycle_count}/{cycles_per_day}", c['c'])
             at(x + 2, y + 7, f"time: {datetime.now().strftime('%H:%M:%S')}", c['c'])
+            at(x + 2, y + 8, f"daily sent: {daily_sent:.2f}/6.0 OCT", c['c'])
             
             # Get current nonce and balance
             lu = 0
             n, b = await st()
             
             if n is None:
-                at(x + 2, y + 9, "failed to get nonce - retrying...", c['R'])
+                at(x + 2, y + 10, "failed to get nonce - retrying...", c['R'])
                 await asyncio.sleep(5)
                 continue
                 
-            if not b or b < total_needed:
-                at(x + 2, y + 9, f"insufficient balance: {b:.6f} < {total_needed}", c['bgr'] + c['w'])
-                at(x + 2, y + 10, "stopping automation...", c['y'])
+            if not b or b < total_needed_per_cycle:
+                at(x + 2, y + 10, f"insufficient balance: {b:.6f} < {total_needed_per_cycle}", c['bgr'] + c['w'])
+                at(x + 2, y + 11, "stopping automation...", c['y'])
                 break
             
-            at(x + 2, y + 8, f"balance: {b:.6f} OCT", c['g'])
-            at(x + 2, y + 9, "sending batch...", c['c'])
+            at(x + 2, y + 9, f"balance: {b:.6f} OCT", c['g'])
+            at(x + 2, y + 10, "sending batch...", c['c'])
             
             # Prepare and send transactions
-            spin_task = asyncio.create_task(spin_animation(x + 2, y + 11, f"sending cycle {cycle_count}"))
+            spin_task = asyncio.create_task(spin_animation(x + 2, y + 12, f"sending cycle {cycle_count}"))
             
             batch_size = 5
             batches = [recipients[i:i+batch_size] for i in range(0, len(recipients), batch_size)]
             cycle_success, cycle_failed = 0, 0
             
             for batch_idx, batch in enumerate(batches):
-                # Send transactions sequentially with delay instead of all at once
+                # Send transactions sequentially with delay
                 for i, (to, a) in enumerate(batch):
                     idx = batch_idx * batch_size + i
-                    at(x + 2, y + 10, f"sending tx {idx + 1}/{len(recipients)}...", c['c'])
+                    at(x + 2, y + 11, f"sending tx {idx + 1}/{len(recipients)}...", c['c'])
                     
                     t, _ = mk(to, a, n + 1 + idx)
                     result = await snd(t)
                     
                     if isinstance(result, Exception):
                         cycle_failed += 1
-                        at(x + 55, y + 10, "✗ fail", c['R'])
+                        at(x + 55, y + 11, "✗ fail", c['R'])
                     else:
                         ok, hs, _, _ = result
                         if ok:
                             cycle_success += 1
-                            at(x + 55, y + 10, "✓ ok  ", c['g'])
+                            at(x + 55, y + 11, "✓ ok  ", c['g'])
                             h.append({
                                 'time': datetime.now(),
                                 'hash': hs,
@@ -725,10 +761,10 @@ async def auto_multi():
                             })
                         else:
                             cycle_failed += 1
-                            at(x + 55, y + 10, "✗ fail", c['R'])
+                            at(x + 55, y + 11, "✗ fail", c['R'])
         
-                    # Add delay between transactions to prevent nonce conflicts
-                    await asyncio.sleep(0.5)  # 500ms delay between transactions
+                    # Add delay between transactions
+                    await asyncio.sleep(0.5)
             
             spin_task.cancel()
             try:
@@ -739,31 +775,37 @@ async def auto_multi():
             # Update totals
             total_success += cycle_success
             total_failed += cycle_failed
-            total_sent += cycle_success * 0.05
+            cycle_sent = cycle_success * 0.24
+            total_sent += cycle_sent
+            daily_sent += cycle_sent
             
             # Display results
-            at(x + 2, y + 11, " " * (w - 4), c['bg'])
-            at(x + 2, y + 11, f"cycle {cycle_count}: {cycle_success} success, {cycle_failed} failed", 
+            at(x + 2, y + 12, " " * (w - 4), c['bg'])
+            at(x + 2, y + 12, f"cycle {cycle_count}: {cycle_success} success, {cycle_failed} failed", 
                c['bgg'] + c['w'] if cycle_failed == 0 else c['bgr'] + c['w'])
-            at(x + 2, y + 12, f"totals: {total_success} sent, {total_sent:.2f} OCT", c['c'])
+            at(x + 2, y + 13, f"totals: {total_success} sent, {total_sent:.2f} OCT", c['c'])
             
-            # Wait for next cycle (60 seconds total)
-            elapsed = time.time() - cycle_start
-            wait_time = max(0, 60 - elapsed)
-            
-            if wait_time > 0:
-                for remaining in range(int(wait_time), 0, -1):
-                    at(x + 2, y + 13, f"next cycle in: {remaining}s    ", c['y'])
-                    await asyncio.sleep(1)
+            # Wait for next cycle if not the last cycle of the day
+            if cycle_count < cycles_per_day:
+                elapsed = time.time() - cycle_start
+                wait_time = max(0, interval_seconds - elapsed)
+                
+                if wait_time > 0:
+                    for remaining in range(int(wait_time), 0, -1):
+                        hours = remaining // 3600
+                        minutes = (remaining % 3600) // 60
+                        seconds = remaining % 60
+                        at(x + 2, y + 14, f"next cycle in: {hours:02d}:{minutes:02d}:{seconds:02d}    ", c['y'])
+                        await asyncio.sleep(1)
             
             lu = 0  # Force balance refresh
             
     except KeyboardInterrupt:
-        at(x + 2, y + 15, "automation stopped by user", c['y'])
+        at(x + 2, y + 16, "automation stopped by user", c['y'])
     except Exception as e:
-        at(x + 2, y + 15, f"error: {str(e)[:50]}", c['R'])
+        at(x + 2, y + 16, f"error: {str(e)[:50]}", c['R'])
     
-    at(x + 2, y + 16, f"final stats: {total_success} transactions, {total_sent:.2f} OCT sent", c['g'])
+    at(x + 2, y + 17, f"final stats: {total_success} transactions, {total_sent:.2f} OCT sent", c['g'])
     await awaitkey()
 
 async def main():
