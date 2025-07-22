@@ -582,9 +582,10 @@ def menu(x, y, w, h):
     at(x + 2, y + 6, "[5] decrypt balance", c['w'])
     at(x + 2, y + 7, "[6] private transfer", c['w'])
     at(x + 2, y + 8, "[7] claim transfers", c['w'])
-    at(x + 2, y + 9, "[8] export keys", c['w'])
-    at(x + 2, y + 10, "[9] clear hist", c['w'])
-    at(x + 2, y + 11, "[0] exit", c['w'])
+    at(x + 2, y + 9, "[8] mass claim transfers", c['w'])
+    at(x + 2, y + 10, "[9] export keys", c['w'])
+    at(x + 2, y + 11, "[0] clear hist", c['w'])
+    at(x + 2, y + 12, "[x] exit", c['w'])
     at(x + 2, y + h - 2, "command: ", c['B'] + c['y'])
 
 async def scr():
@@ -1149,6 +1150,130 @@ async def claim_transfers_ui():
     
     await awaitkey()
 
+async def mass_claim_transfers_ui():
+    cr = sz()
+    cls()
+    fill()
+    w, hb = 85, cr[1] - 4
+    x = (cr[0] - w) // 2
+    y = 2
+    
+    box(x, y, w, hb, "mass claim private transfers")
+    
+    spin_task = asyncio.create_task(spin_animation(x + 2, y + 2, "loading pending transfers"))
+    
+    transfers = await get_pending_transfers()
+    
+    spin_task.cancel()
+    try:
+        await spin_task
+    except asyncio.CancelledError:
+        pass
+    
+    if not transfers:
+        at(x + 2, y + 10, "no pending transfers", c['y'])
+        await awaitkey()
+        return
+    
+    at(x + 2, y + 2, f"found {len(transfers)} claimable transfers:", c['B'] + c['g'])
+    at(x + 2, y + 4, "#   FROM                AMOUNT         EPOCH   ID", c['c'])
+    at(x + 2, y + 5, "─" * (w - 4), c['w'])
+    
+    display_y = y + 6
+    max_display = min(len(transfers), hb - 16)
+    total_amount = 0
+    
+    for i, t in enumerate(transfers[:max_display]):
+        amount_str = "[encrypted]"
+        amount_color = c['y']
+        amount_val = 0
+        
+        if t.get('encrypted_data') and t.get('ephemeral_key'):
+            try:
+                shared = derive_shared_secret_for_claim(priv, t['ephemeral_key'])
+                amt = decrypt_private_amount(t['encrypted_data'], shared)
+                if amt:
+                    amount_val = amt / μ
+                    amount_str = f"{amount_val:.6f} OCT"
+                    amount_color = c['g']
+                    total_amount += amount_val
+            except:
+                pass
+        
+        at(x + 2, display_y + i, f"[{i+1}]", c['c'])
+        at(x + 8, display_y + i, t['sender'][:20] + "...", c['w'])
+        at(x + 32, display_y + i, amount_str, amount_color)
+        at(x + 48, display_y + i, f"ep{t.get('epoch_id', '?')}", c['c'])
+        at(x + 58, display_y + i, f"#{t.get('id', '?')}", c['y'])
+    
+    if len(transfers) > max_display:
+        at(x + 2, display_y + max_display + 1, f"... and {len(transfers) - max_display} more", c['y'])
+    
+    at(x + 2, y + hb - 10, "─" * (w - 4), c['w'])
+    at(x + 2, y + hb - 9, f"total claimable: ~{total_amount:.6f} OCT", c['B'] + c['g'])
+    at(x + 2, y + hb - 8, f"will claim all {len(transfers)} transfers", c['y'])
+    
+    at(x + 2, y + hb - 6, "proceed with mass claim? [y/n]:", c['B'] + c['y'])
+    choice = await ainp(x + 33, y + hb - 6)
+    
+    if choice.strip().lower() != 'y':
+        return
+    
+    # Start mass claiming
+    at(x + 2, y + hb - 4, "claiming transfers...", c['c'])
+    
+    success_count = 0
+    failed_count = 0
+    batch_size = 3  # Process in smaller batches to avoid overwhelming the server
+    
+    for i in range(0, len(transfers), batch_size):
+        batch = transfers[i:i + batch_size]
+        batch_tasks = []
+        
+        for transfer in batch:
+            transfer_id = transfer['id']
+            batch_tasks.append(claim_private_transfer(transfer_id))
+        
+        # Process batch
+        batch_results = await asyncio.gather(*batch_tasks, return_exceptions=True)
+        
+        for j, (transfer, result) in enumerate(zip(batch, batch_results)):
+            current_idx = i + j + 1
+            transfer_id = transfer['id']
+            
+            at(x + 2, y + hb - 4, f"[{current_idx}/{len(transfers)}] claiming #{transfer_id}...", c['c'])
+            
+            if isinstance(result, Exception):
+                failed_count += 1
+                at(x + 55, y + hb - 4, "✗ error", c['R'])
+            else:
+                ok, claim_result = result
+                if ok:
+                    success_count += 1
+                    at(x + 55, y + hb - 4, "✓ ok   ", c['g'])
+                else:
+                    failed_count += 1
+                    at(x + 55, y + hb - 4, "✗ fail ", c['R'])
+            
+            await asyncio.sleep(0.1)  # Small delay between claims
+        
+        # Small delay between batches
+        if i + batch_size < len(transfers):
+            await asyncio.sleep(0.5)
+    
+    # Show final results
+    at(x + 2, y + hb - 4, " " * (w - 4), c['bg'])
+    if failed_count == 0:
+        at(x + 2, y + hb - 4, f"✓ mass claim completed!", c['bgg'] + c['w'])
+        at(x + 2, y + hb - 3, f"successfully claimed {success_count} transfers", c['g'])
+    else:
+        at(x + 2, y + hb - 4, f"mass claim finished with errors", c['bgr'] + c['w'])
+        at(x + 2, y + hb - 3, f"success: {success_count}, failed: {failed_count}", c['y'])
+    
+    at(x + 2, y + hb - 2, "your encrypted balance has been updated", c['g'])
+    
+    await awaitkey()
+
 async def exp():
     cr = sz()
     cls()
@@ -1265,11 +1390,13 @@ async def main():
             elif cmd == '7':
                 await claim_transfers_ui()
             elif cmd == '8':
-                await exp()
+                await mass_claim_transfers_ui()
             elif cmd == '9':
+                await exp()
+            elif cmd == '0':
                 h.clear()
                 lh = 0
-            elif cmd in ['0', 'q', '']:
+            elif cmd in ['x', 'q', '']:
                 break
     except Exception:
         pass
