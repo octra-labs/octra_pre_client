@@ -44,6 +44,7 @@ cp wallet.json.example wallet.json
   "rpc": "https://octra.network"
 }
 ```
+You need use B64 type private key.
 
 3. run
 
